@@ -18,23 +18,23 @@ TEAM_TOKEN = "d1b791fa0ef5092d9cd051b2b09df2473d1e2ea07e09fe6c61abb5722dfbc7d3"
 # ---------------- PDF Text Extraction ----------------
 def extract_text_from_pdf_url(url):
     response = requests.get(url)
-    doc = fitz.open(stream=response.content, filetype="pdf")
-    return "\n".join(page.get_text() for page in doc)
+    with fitz.open(stream=response.content, filetype="pdf") as doc:
+        return "\n".join(page.get_text() for page in doc)
 
 # ---------------- Chunking & Embedding ----------------
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
 def build_index(text):
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    model = SentenceTransformer("all-MiniLM-L6-v2")  # Load model here to free memory later
+    splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=30)
     chunks = splitter.split_text(text)
     embeddings = model.encode(chunks)
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
     return index, chunks, embeddings
 
-def retrieve_top_chunks(question, index, chunks, top_k=3):
+def retrieve_top_chunks(question, index, chunks):
+    model = SentenceTransformer("all-MiniLM-L6-v2")
     q_vector = model.encode([question])
-    _, I = index.search(q_vector, top_k)
+    _, I = index.search(q_vector, 3)
     return [chunks[i] for i in I[0]]
 
 # ---------------- Groq Prompt ----------------
@@ -125,7 +125,7 @@ def call_groq(prompt):
     response_text = response.json()["choices"][0]["message"]["content"]
     json_start = response_text.find("{")
     json_end = response_text.rfind("}")
-    parsed = json.loads(response_text[json_start:json_end+1])
+    parsed = json.loads(response_text[json_start:json_end + 1])
     return parsed.get("answer", "Not specified in the document.")
 
 # ---------------- Main Endpoint ----------------
@@ -147,13 +147,13 @@ def run_submission():
         text = extract_text_from_pdf_url(document_url)
         index, chunks, _ = build_index(text)
 
-        # Step 2: Process each question in parallel
+        # Step 2: Process each question
         def process_question(q):
             top_chunks = retrieve_top_chunks(q, index, chunks)
             prompt = build_prompt(q, top_chunks)
             return call_groq(prompt)
 
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             answers = list(executor.map(process_question, questions))
 
         return jsonify({"answers": answers}), 200
@@ -161,6 +161,7 @@ def run_submission():
     except Exception as e:
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
-# ---------------- Main ----------------
+# ---------------- Entry Point ----------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port, debug=False)

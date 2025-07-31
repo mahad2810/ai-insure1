@@ -1,8 +1,8 @@
-Flask
-python-dotenv
-requests
-PyMuPDF
-faiss-cpu
-sentence-transformers
-langchain
-gunicorn
+Flask==2.3.3
+python-dotenv==1.0.1
+requests==2.31.0
+PyMuPDF==1.23.3
+faiss-cpu==1.7.4
+sentence-transformers==2.2.2
+langchain==0.1.14
+gunicorn==21.2.0
