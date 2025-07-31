@@ -50,7 +50,7 @@ def call_gemini(prompt):
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "response_mime_type": "application/json",
-            "temperature": 0.3
+            "temperature": 0.2
         }
     }
     response = requests.post(url, headers={"Content-Type": "application/json"}, json=payload)
