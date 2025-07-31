@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: groq-insurance-api
+    name: ai-insure1
     env: python
     region: oregon
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn app:app
     envVars:
       - key: GROQ_API_KEY
         sync: false
